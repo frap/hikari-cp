@@ -31,7 +31,8 @@
    "postgresql"     "org.postgresql.ds.PGSimpleDataSource"
    "fdbsql"         "com.foundationdb.sql.jdbc.ds.FDBSimpleDataSource"
    "sybase"         "com.sybase.jdbcx.SybDataSource"
-   "sqlite"         "org.sqlite.JDBC"})
+   "sqlite"         "org.sqlite.JDBC"
+   "informix"       "com.informix.jdbcx.IfxDataSource"})
 
 (def ^{:private true} AdaptersList
   (apply s/enum (keys adapters-to-datasource-class-names)))
