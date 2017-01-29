@@ -1,7 +1,8 @@
 (ns hikari-cp.core
   (:import com.zaxxer.hikari.HikariConfig
            com.zaxxer.hikari.HikariDataSource
-           javax.sql.DataSource)
+           javax.sql.DataSource
+           clojure.lang.ExceptionInfo)
   (:require [org.tobereplaced.lettercase :refer [mixed-name]]
             [schema.core :as s]))
 
@@ -81,6 +82,7 @@
    (s/optional-key :leak-detection-threshold) IntGte2000
    :register-mbeans    s/Bool
    (s/optional-key :connection-init-sql) s/Str
+   (s/optional-key :metric-registry) s/Any
    s/Keyword           s/Any})
 
 (def AdapterConfigurationOptions
@@ -111,20 +113,26 @@
 
 (defn- exception-message
   ""
-  [e]
+  ^String [^ExceptionInfo e]
   (format "Invalid configuration options: %s" (keys (:error (.getData e)))))
+
+(defmulti translate-property keyword)
+(defmethod translate-property :use-ssl [_] "useSSL")
+(defmethod translate-property :useSSL [_] "useSSL")
+(defmethod translate-property :default [x] (mixed-name x))
 
 (defn- add-datasource-property
   ""
-  [config property value]
-  (if (not (nil? value)) (.addDataSourceProperty config (mixed-name property) value)))
+  [^HikariConfig config property value]
+  (when-not (nil? value)
+    (.addDataSourceProperty config (translate-property property) value)))
 
 (defn validate-options
   ""
   [options]
   (try
     (s/validate ConfigurationOptions (merge default-datasource-options options))
-    (catch clojure.lang.ExceptionInfo e
+    (catch ExceptionInfo e
       (throw
        (IllegalArgumentException. (exception-message e))))))
 
@@ -158,7 +166,8 @@
                 register-mbeans
                 jdbc-url
                 driver-class-name
-                connection-init-sql]} options]
+                connection-init-sql
+                metric-registry]} options]
     ;; Set pool-specific properties
     (doto config
       (.setAutoCommit          auto-commit)
@@ -181,6 +190,7 @@
     (if password (.setPassword config password))
     (if pool-name (.setPoolName config pool-name))
     (if connection-test-query (.setConnectionTestQuery config connection-test-query))
+    (when metric-registry (.setMetricRegistry config metric-registry))
     (when leak-detection-threshold
       (.setLeakDetectionThreshold config ^Long leak-detection-threshold))
     (when configure
@@ -203,5 +213,5 @@
 
 (defn close-datasource
   ""
-  [datasource]
+  [^HikariDataSource datasource]
   (.close datasource))

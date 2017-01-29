@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 (defproject hikari-cp "1.7.4"
+=======
+(defproject hikari-cp "1.7.5"
+>>>>>>> fc60c5a8134cc21e2085a729982b388300e3257d
   :description "A Clojure wrapper to HikariCP JDBC connection pool"
   :url "https://github.com/tomekw/hikari-cp"
   :license {:name "Eclipse Public License"
@@ -7,7 +11,7 @@
         :url "https://github.com/tomekw/hikari-cp"}
   :dependencies [[org.clojure/clojure         "1.7.0"]
                  [org.tobereplaced/lettercase "1.0.0"]
-                 [com.zaxxer/HikariCP         "2.4.7"]
+                 [com.zaxxer/HikariCP         "2.5.1"]
                  [prismatic/schema            "1.0.4"]]
   :profiles {:dev {
                    :dependencies [[expectations               "2.1.4"]
@@ -15,6 +19,7 @@
                                   [org.clojure/java.jdbc      "0.4.2"]
                                   [mysql/mysql-connector-java "5.1.38"]
                                   [org.postgresql/postgresql  "9.3-1102-jdbc41"]
+                                  [io.dropwizard.metrics/metrics-core "3.1.2"]
 
                                   ; The Oracle driver is only accessible from maven.oracle.com
                                   ; which requires a userId and password

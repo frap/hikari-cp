@@ -9,7 +9,7 @@ A Clojure wrapper to [HikariCP](https://github.com/brettwooldridge/HikariCP) - "
 Add the following dependency to your `project.clj` file:
 
 ```clojure
-[hikari-cp "1.7.3"]
+[hikari-cp "1.7.5"]
 ```
 
 Note: hikari-cp targets Java 8 by default. If you are using an older version of Java, your `project.clj` should look more like:
@@ -33,7 +33,7 @@ You'll also need to add the JDBC driver needed for your database.
 | `:minimum-idle`          | No       | `10`                   | This property controls the minimum number of idle connections that HikariCP tries to maintain in the pool.                                                                                                                                                                                                                             |
 | `:maximum-pool-size`     | No       | `10`                   | This property controls the maximum size that the pool is allowed to reach, including both idle and in-use connections. Basically this value will determine the maximum number of actual connections to the database backend.                                                                                                           |
 | `:pool-name`             | No       | Auto-generated         | This property represents a user-defined name for the connection pool and appears mainly in logging and JMX management consoles to identify pools and pool configurations.                                                                                                                                                              |
-| `:jdbc-url`              | **Yes¹** | None                   | This property sets the JDBC connection URL.                                                                                                  |
+| `:jdbc-url`              | **Yes¹** | None                   | This property sets the JDBC connection URL. Please note the `h2` adapter expects `:url` instead of `:jdbc-url`.                            |
 | `:driver-class-name`     | No       | None                   | This property sets the JDBC driver class.                                                                                                    |
 | `:adapter`               | **Yes¹** | None                   | This property sets the database adapter. Please check [Adapters and corresponding datasource class names](#adapters-and-corresponding-datasource-class-names) for the full list of supported adapters and their datasource class names.                                                                                                |
 | `:username`              | No       | None                   | This property sets the default authentication username used when obtaining Connections from the underlying driver.                                                                                                                                                                                                                     |
@@ -47,17 +47,24 @@ You'll also need to add the JDBC driver needed for your database.
 | `:connection-init-sql`   | No       | None                   | This property sets a SQL statement that will be executed after every new connection creation before adding it to the pool.                                                                                                                                                                                                             |
 | `:datasource`            | No       | None                   | This property allows you to directly set the instance of the DataSource to be wrapped by the pool.                                                                                                                                                                                                                                     |
 | `:datasource-classname`  | No       | None                   | This is the name of the DataSource class provided by the JDBC driver.                                                                                                                                                                                                                                                                  |
+| `:metric-registry`  | No      | None | This is an instance of a dropwizard metrics MetricsRegistry |
 
 **¹** `:adapter` and `:jdbc-url` are mutually exclusive.
 
 You can also add other datasource-specific configuration options.
-Keywords will be converted to the camelCase format add added
-as a datasource property:
+By default, keywords will be converted to the camelCase format add added
+as a datasource property, unless a special translation is defined:
 
 ```clojure
 ;; {:tcp-keep-alive true} will be:
 (.addDataSourceProperty config "tcpKeepAlive" true)
+
+;; {:use-ssl false} has a custom translation, so it will be:
+(.addDataSourceProperty config "useSSL" false)
 ```
+
+Custom translations of properties can be added by extending the
+`translate-property` multimethod.
 
 **Please note:** All time values are specified in milliseconds.
 
