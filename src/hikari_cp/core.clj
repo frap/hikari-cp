@@ -1,10 +1,9 @@
 (ns hikari-cp.core
   (:import com.zaxxer.hikari.HikariConfig
            com.zaxxer.hikari.HikariDataSource
-           javax.sql.DataSource
-           clojure.lang.ExceptionInfo)
+           javax.sql.DataSource)
   (:require [org.tobereplaced.lettercase :refer [mixed-name]]
-            [schema.core :as s]))
+            [clojure.spec.alpha :as s]))
 
 (def default-datasource-options
   {:auto-commit        true
@@ -25,18 +24,16 @@
    "hsqldb"         "org.hsqldb.jdbc.JDBCDataSource"
    "mariadb"        "org.mariadb.jdbc.MySQLDataSource"
    "mysql"          "com.mysql.jdbc.jdbc2.optional.MysqlDataSource"
+   "neo4j"          "org.neo4j.jdbc.DataSource"
    "sqlserver-jtds" "net.sourceforge.jtds.jdbcx.JtdsDataSource"
    "sqlserver"      "com.microsoft.sqlserver.jdbc.SQLServerDataSource"
    "oracle"         "oracle.jdbc.pool.OracleDataSource"
    "pgjdbc-ng"      "com.impossibl.postgres.jdbc.PGDataSource"
    "postgresql"     "org.postgresql.ds.PGSimpleDataSource"
    "fdbsql"         "com.foundationdb.sql.jdbc.ds.FDBSimpleDataSource"
-   "sybase"         "com.sybase.jdbcx.SybDataSource"
-   "sqlite"         "org.sqlite.JDBC"
-   "informix"       "com.informix.jdbcx.IfxDataSource"})
-
-(def ^{:private true} AdaptersList
-  (apply s/enum (keys adapters-to-datasource-class-names)))
+   "informix"       "com.informix.jdbcx.IfxDataSource"
+   "sybase"         "com.sybase.jdbc4.jdbc.SybDataSource"
+   "sqlite"         "org.sqlite.JDBC"})
 
 (defn- gte-0?
   "Returns true if num is greater than or equal 0, else false"
@@ -58,65 +55,94 @@
   [x]
   (or (== 0 x) (>= x 2000)))
 
-(def ^{:private true} IntGte0
-  (s/both s/Int (s/pred gte-0? 'gte-0?)))
+(s/def ::auto-commit
+  boolean?)
 
-(def ^{:private true} IntGte1
-  (s/both s/Int (s/pred gte-1? 'gte-1?)))
+(s/def ::read-only
+  boolean?)
 
-(def ^{:private true} IntGte1000
-  (s/both s/Int (s/pred gte-1000? 'gte-1000?)))
+(s/def ::register-mbeans
+  boolean?)
 
-(def ^{:private true} IntGte2000
-  (s/both s/Int (s/pred leak-threshold? 'leak-threshold?)))
+(s/def ::connection-timeout
+  (s/and integer? gte-1000?))
 
-(def BaseConfigurationOptions
-  {:auto-commit        s/Bool
-   :read-only          s/Bool
-   :connection-timeout IntGte1000
-   :validation-timeout IntGte1000
-   :idle-timeout       IntGte0
-   :max-lifetime       IntGte0
-   :minimum-idle       IntGte0
-   :maximum-pool-size  IntGte1
-   (s/optional-key :leak-detection-threshold) IntGte2000
-   :register-mbeans    s/Bool
-   (s/optional-key :connection-init-sql) s/Str
-   (s/optional-key :metric-registry) s/Any
-   s/Keyword           s/Any})
+(s/def ::validation-timeout
+  (s/and integer? gte-1000?))
 
-(def AdapterConfigurationOptions
-  (assoc BaseConfigurationOptions
-         :adapter AdaptersList))
+(s/def ::idle-timeout
+  (s/and integer? gte-0?))
 
-(def JDBCUrlConfigurationOptions
-  (assoc BaseConfigurationOptions
-         :jdbc-url s/Str
-         (s/optional-key :driver-class-name) s/Str))
+(s/def ::max-lifetime
+  (s/and integer? gte-0?))
 
-(def DatasourceConfigurationOptions
-  (assoc BaseConfigurationOptions
-         :datasource DataSource))
+(s/def ::minimum-idle
+  (s/and integer? gte-0?))
 
-(def DatasourceClassnameConfigurationOptions
-  (assoc BaseConfigurationOptions
-         :datasource-classname s/Str))
+(s/def ::maximum-pool-size
+  (s/and integer? gte-1?))
 
-;(s/optional-key :driver-class-name)
-(def ConfigurationOptions (s/conditional
-                             :datasource DatasourceConfigurationOptions
-                             :datasource-classname DatasourceClassnameConfigurationOptions
-                             :adapter AdapterConfigurationOptions
-                             :jdbc-url JDBCUrlConfigurationOptions
-                             :else AdapterConfigurationOptions))
+(s/def ::leak-detection-threshold
+  (s/and integer? leak-threshold?))
 
+(s/def ::connection-init-sql
+  string?)
 
-(defn- exception-message
-  ""
-  ^String [^ExceptionInfo e]
-  (format "Invalid configuration options: %s" (keys (:error (.getData e)))))
+(s/def ::basic-options
+  (s/and (s/keys :req-un [::auto-commit
+                          ::connection-timeout
+                          ::idle-timeout
+                          ::max-lifetime
+                          ::maximum-pool-size
+                          ::minimum-idle
+                          ::read-only
+                          ::register-mbeans
+                          ::validation-timeout]
+                 :opt-un [::connection-timeout
+                          ::leak-detection-threshold])
+         ;; Make sure that if the user provides the class
+         ;; name using the deprecated keyword we'll throw an
+         ;; exception instead of silently failing.
+         #(not (contains? % :datasource-classname))))
+
+(s/def ::datasource
+  #(instance? DataSource %))
+
+(s/def ::datasource-class-name
+  string?)
+
+(s/def ::datasource-options
+  (s/keys :req-un [::datasource]))
+
+(s/def ::datasource-class-name-options
+  (s/keys :req-un [::datasource-class-name]))
+
+(s/def ::adapter
+  (set (keys adapters-to-datasource-class-names)))
+
+(s/def ::adapter-options
+  (s/keys :req-un [::adapter]))
+
+(s/def ::jdbc-url
+  string?)
+
+(s/def ::driver-class-name
+  string?)
+
+(s/def ::jdbc-url-options
+  (s/keys :req-un [::jdbc-url]
+          :opt-un [::driver-class-name]))
+
+(s/def ::configuration-options
+  (s/and ::basic-options
+         (s/or :datasource ::datasource-options
+               :datasource-class-name ::datasource-class-name-options
+               :adapter ::adapter-options
+               :jdbc-url ::jdbc-url-options)))
 
 (defmulti translate-property keyword)
+(defmethod translate-property :tinyInt1isBit [_] "tinyInt1isBit")
+(defmethod translate-property :tiny-int1is-bit [_] "tinyInt1isBit")
 (defmethod translate-property :use-ssl [_] "useSSL")
 (defmethod translate-property :useSSL [_] "useSSL")
 (defmethod translate-property :default [x] (mixed-name x))
@@ -128,27 +154,47 @@
     (.addDataSourceProperty config (translate-property property) value)))
 
 (defn validate-options
-  ""
+  "Validate `options`"
   [options]
-  (try
-    (s/validate ConfigurationOptions (merge default-datasource-options options))
-    (catch ExceptionInfo e
-      (throw
-       (IllegalArgumentException. (exception-message e))))))
+  (let [merged (merge default-datasource-options options)]
+    (if (s/valid? ::configuration-options merged)
+      merged
+      (throw (IllegalArgumentException.
+               (s/explain-str ::configuration-options merged))))))
+
+(def ^:private core-options
+  [:adapter
+   :auto-commit
+   :configure
+   :connection-init-sql
+   :connection-test-query
+   :connection-timeout
+   :datasource-class-name
+   :driver-class-name
+   :health-check-registry
+   :idle-timeout
+   :jdbc-url
+   :leak-detection-threshold
+   :max-lifetime
+   :maximum-pool-size
+   :metric-registry
+   :minimum-idle
+   :password
+   :pool-name
+   :read-only
+   :register-mbeans
+   :username
+   :validation-timeout])
 
 (defn datasource-config
-  ""
+  "Create datasource config from `datasource-options`"
   [datasource-options]
   (let [config (HikariConfig.)
         options               (validate-options datasource-options)
-        not-core-options      (apply dissoc options
-                                     :username :password :pool-name :connection-test-query
-                                     :configure :leak-detection-threshold :adapter :jdbc-url
-                                     :driver-class-name :connection-init-sql
-                                     (keys BaseConfigurationOptions))
+        not-core-options      (apply dissoc options core-options)
         {:keys [adapter
                 datasource
-                datasource-classname
+                datasource-class-name
                 auto-commit
                 configure
                 connection-test-query
@@ -167,7 +213,8 @@
                 jdbc-url
                 driver-class-name
                 connection-init-sql
-                metric-registry]} options]
+                metric-registry
+                health-check-registry]} options]
     ;; Set pool-specific properties
     (doto config
       (.setAutoCommit          auto-commit)
@@ -178,19 +225,20 @@
       (.setMaxLifetime         max-lifetime)
       (.setMinimumIdle         minimum-idle)
       (.setMaximumPoolSize     maximum-pool-size))
-    (if datasource (.setDataSource config datasource))
-    (if datasource-classname (.setDataSourceClassName config datasource-classname))
+    (when datasource (.setDataSource config datasource))
     (if adapter
       (->> (get adapters-to-datasource-class-names adapter)
            (.setDataSourceClassName config))
       (.setJdbcUrl config jdbc-url))
+    (when datasource-class-name (.setDataSourceClassName config datasource-class-name))
     ;; Set optional properties
-    (if driver-class-name (.setDriverClassName config driver-class-name))
-    (if username (.setUsername config username))
-    (if password (.setPassword config password))
-    (if pool-name (.setPoolName config pool-name))
-    (if connection-test-query (.setConnectionTestQuery config connection-test-query))
+    (when driver-class-name (.setDriverClassName config driver-class-name))
+    (when username (.setUsername config username))
+    (when password (.setPassword config password))
+    (when pool-name (.setPoolName config pool-name))
+    (when connection-test-query (.setConnectionTestQuery config connection-test-query))
     (when metric-registry (.setMetricRegistry config metric-registry))
+    (when health-check-registry (.setHealthCheckRegistry config health-check-registry))
     (when leak-detection-threshold
       (.setLeakDetectionThreshold config ^Long leak-detection-threshold))
     (when configure
@@ -205,13 +253,13 @@
     config))
 
 (defn make-datasource
-  ""
+  "Make datasource from `datasource-options`"
   [datasource-options]
   (let [config (datasource-config datasource-options)
         datasource (HikariDataSource. config)]
     datasource))
 
 (defn close-datasource
-  ""
+  "Close given `datasource`"
   [^HikariDataSource datasource]
   (.close datasource))

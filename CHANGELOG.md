@@ -1,21 +1,90 @@
 ## unreleased
 
+## 2.7.1
+
+* updated `HikariCP` to `3.3.1`
+
+## 2.7.0
+
+* updated `HikariCP` to `3.3.0`
+* Add missing `::jdbc-url-options` specs
+
+## 2.6.0
+
+* Added support for Mysql Connector's tinyInt1isBit property.
+
+## 2.5.0
+
+* updated `HikariCP` to `3.2.0`
+
+## 2.4.0
+
+* updated `HikariCP` to `3.1.0`
+
+## 2.3.0
+
+* updated `HikariCP` to `3.0.0`
+
+## 2.2.0
+
+* Replace Schema with clojure.spec. NOTE: internal specs are not part of
+  the public API. Depending on them outside of hikari-cp is discouraged.
+
+## 2.1.0
+
+* add preliminary support for Neo4j
+
+## 2.0.1
+
+* updated `HikariCP` to `2.7.6`
+
+## 2.0.0
+
+* updated `Clojure` to `1.9.0`
+* **BREAKING CHANGE**: rename `datasource-classname` to `datasource-class-name`
+
+## 1.8.3
+
+* allow custom `datasource-classname` along with `adapter`
+* updated `HikariCP` to `2.7.4`
+
+## 1.8.2
+
+* updated `HikariCP` to `2.7.3`
+
+## 1.8.1
+
+* removed `:connection-test` option as it was deprecated and had no functionality backing it in `HikariCP`.
+  Please use `:connection-test-query`
+* updated `HikariCP` to `2.7.2`
+
+## 1.8.0
+
+* added support for Dropwizard healthcheck functionality
+* updated `HikariCP` to `2.7.1`
+* added `:connection-test` option for disabling default connection test
+
+## 1.7.6
+
+* updated `HikariCP` to `2.6.0`
+* do not attempt to use :metric-registry as a datasource property
+
 ## 1.7.5
 
-* Added support for dropwizard metrics registry.
-* Added support for useSSL property.
+* added support for Dropwizard metrics registry
+* added support for `useSSL` property
 
 ## 1.7.4
 
-* Updated `HikariCP` to `2.5.1`
+* updated `HikariCP` to `2.5.1`
 
 ## 1.7.3
 
-* Fixed validation for datasource
+* fixed validation for datasource
 
 ## 1.7.2
 
-* Updated `HikariCP` to `2.4.7`
+* updated `HikariCP` to `2.4.7`
 
 ## 1.7.1
 
@@ -23,32 +92,31 @@
 
 ## 1.7.0
 
-* Added `datasource` and `datasource-classname` options
-* Make `connection-init-sql` a none core option
-* Make `driver-class-name` optional when `jdbc-url` is given.
+* added `datasource` and `datasource-classname` options
+* make `connection-init-sql` a none core option
+* make `driver-class-name` optional when `jdbc-url` is given
 
 ## 1.6.1
 
 * Call setRegisterMbeans property only when it is specified.
 * Fix a bug introduced in a25b7a7f20b0a5c46dd83ea32d7a5a7b1c184273 where
-  the non core options are no longer properly detected.
+  the non core options are no longer properly detected
 
 ## 1.6.0
 
-* Allow configuring without an adapter, but using a JDBC URL and driver class
-  name
-* Added `connection-init-sql` option for Hikari config.
+* allow configuring without an adapter, but using a JDBC URL and driver class name
+* added `connection-init-sql` option for Hikari config
 
 ## 1.5.0
 
-* Updated `HikariCP` to `2.4.3`
-* Added `leak-detection-threshold` option for Hikari config.
-* Added `register-mbeans` option for Hikari config.
+* updated `HikariCP` to `2.4.3`
+* added `leak-detection-threshold` option for Hikari config
+* added `register-mbeans` option for Hikari config
 
 ## 1.4.0
 
-* Added `sqlite` support with `org.sqlite.JDBC` adapter
-* Added a general purpose way to alter Hikari config
+* added `sqlite` support with `org.sqlite.JDBC` adapter
+* added a general purpose way to alter Hikari config
 
 ## 1.3.1
 
@@ -164,4 +232,4 @@
 
 ## 0.1.0
 
-* Initial release
+* initial release

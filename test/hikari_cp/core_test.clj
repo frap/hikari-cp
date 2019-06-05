@@ -2,7 +2,8 @@
   (:require [hikari-cp.core :refer :all])
   (:use expectations)
   (:import (com.zaxxer.hikari.pool HikariPool$PoolInitializationException)
-           (com.codahale.metrics MetricRegistry)))
+           (com.codahale.metrics MetricRegistry)
+           (com.codahale.metrics.health HealthCheckRegistry)))
 
 (def valid-options
   {:auto-commit              false
@@ -29,8 +30,14 @@
   {:driver-class-name "org.postgresql.ds.PGPoolingDataSource"
    :jdbc-url          "jdbc:postgresql://localhost:5433/test"})
 
+(def alternate-valid-options2
+  {:datasource-class-name "com.sybase.jdbc3.jdbc.SybDataSource"})
+
 (def metric-registry-options
   {:metric-registry (MetricRegistry.)})
+
+(def health-check-registry-options
+  {:health-check-registry (HealthCheckRegistry.)})
 
 (def datasource-config-with-required-settings
   (datasource-config (apply dissoc valid-options (keys default-datasource-options))))
@@ -42,14 +49,24 @@
   (datasource-config (-> (dissoc valid-options :adapter)
                          (merge alternate-valid-options))))
 
+(def datasource-config-with-overrides-alternate2
+  (datasource-config (-> (dissoc valid-options :adapter)
+                         (merge alternate-valid-options2))))
+
 (def mysql-datasouurce-config
   (datasource-config (merge valid-options
-                            {:adapter "mysql" :use-legacy-datetime-code false})))
+                            {:adapter "mysql"
+                             :datasource-class-name "com.mysql.cj.jdbc.MysqlDataSource"
+                             :use-legacy-datetime-code false})))
 
 (def metric-registry-config (datasource-config (merge valid-options metric-registry-options)))
 
+(def health-check-registry-config (datasource-config (merge valid-options health-check-registry-options)))
+
 (expect false
         (get (.getDataSourceProperties mysql-datasouurce-config) "useLegacyDatetimeCode"))
+(expect "com.mysql.cj.jdbc.MysqlDataSource"
+        (.getDataSourceClassName mysql-datasouurce-config))
 (expect true
         (.isAutoCommit datasource-config-with-required-settings))
 (expect false
@@ -80,6 +97,11 @@
         (.getMetricRegistry datasource-config-with-required-settings))
 (expect (:metric-registry metric-registry-options)
         (.getMetricRegistry metric-registry-config))
+
+(expect nil
+  (.getHealthCheckRegistry datasource-config-with-required-settings))
+(expect (:health-check-registry health-check-registry-options)
+  (.getHealthCheckRegistry health-check-registry-config))
 
 
 (expect false
@@ -112,9 +134,12 @@
 (expect "jdbc:postgresql://localhost:5433/test"
         (.getJdbcUrl datasource-config-with-overrides-alternate))
 
+(expect "com.sybase.jdbc3.jdbc.SybDataSource"
+        (.getDataSourceClassName datasource-config-with-overrides-alternate2))
+
 (expect IllegalArgumentException
         (datasource-config (dissoc valid-options :adapter)))
-(expect "Invalid configuration options: (:adapter)"
+(expect #"contains\? % :adapter"
         (try
           (datasource-config (validate-options (dissoc valid-options :adapter)))
           (catch IllegalArgumentException e
@@ -147,6 +172,13 @@
         (validate-options (merge valid-options {:maximum-pool-size 0})))
 (expect IllegalArgumentException
         (validate-options (merge valid-options {:adapter :foo})))
+(expect IllegalArgumentException
+        (validate-options (merge valid-options {:datasource-classname "adsf"})))
+(expect IllegalArgumentException
+        (validate-options (merge (dissoc valid-options :adapter) {:jdbc-url nil})))
+(expect IllegalArgumentException
+        (validate-options (merge (dissoc valid-options :adapter) {:jdbc-url "jdbc:h2:~/test"
+                                                                  :driver-class-name nil})))
 (expect map?
         (validate-options (merge valid-options {:username nil})))
 (expect map?
@@ -167,6 +199,11 @@
         (validate-options (merge valid-options {:port-number -1})))
 (expect map?
         (validate-options (dissoc valid-options :port-number)))
+(expect map?
+        (validate-options (merge (dissoc valid-options :adapter) {:jdbc-url "jdbc:h2:~/test"})))
+(expect map?
+        (validate-options (merge (dissoc valid-options :adapter) {:jdbc-url "jdbc:h2:~/test"
+                                                                  :driver-class-name "org.h2.Driver"})))
 
 
 ;; -- check leak detections option
@@ -187,11 +224,13 @@
 
 ;; Ensure that core options aren't being set as datasource properties
 (expect #{"portNumber" "databaseName" "serverName"}
-  (set (keys (.getDataSourceProperties datasource-config-with-required-settings))))
+  (set (keys (.getDataSourceProperties metric-registry-config))))
 
 (expect HikariPool$PoolInitializationException
   (make-datasource valid-options))
 
+(expect "tinyInt1isBit" (translate-property :tinyInt1isBit))
+(expect "tinyInt1isBit" (translate-property :tiny-int1is-bit))
 (expect "useSSL" (translate-property :useSSL))
 (expect "useSSL" (translate-property :use-ssl))
 (expect "useFoo" (translate-property :useFOO))
